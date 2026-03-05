@@ -3,10 +3,10 @@ import type { GscSiteEntry, VerificationToken, VerifiedResource } from './types.
 import { loadRefreshToken } from './token-store.js'
 
 async function getAuth() {
+  // Redirect URI not needed for API calls with refresh token
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+    process.env.GOOGLE_CLIENT_SECRET
   )
   // Blob store takes precedence, fall back to env var for backward compat
   const refreshToken = await loadRefreshToken() ?? process.env.GOOGLE_REFRESH_TOKEN
@@ -68,11 +68,17 @@ export async function listVerifiedSites(): Promise<VerifiedResource[]> {
 
 // --- OAuth helpers ---
 
-export function getAuthUrl(): string {
+// Build redirect URI from request origin — works in any environment
+export function buildRedirectUri(requestUrl: string): string {
+  const url = new URL(requestUrl)
+  return `${url.origin}/api/auth-callback`
+}
+
+export function getAuthUrl(redirectUri: string): string {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+    redirectUri
   )
   return oauth2.generateAuthUrl({
     access_type: 'offline',
@@ -84,11 +90,11 @@ export function getAuthUrl(): string {
   })
 }
 
-export async function exchangeCode(code: string) {
+export async function exchangeCode(code: string, redirectUri: string) {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+    redirectUri
   )
   const { tokens } = await oauth2.getToken(code)
   return tokens

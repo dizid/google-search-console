@@ -1,6 +1,6 @@
 import '../lib/env.js'
 import type { Context } from '@netlify/functions'
-import { exchangeCode } from '../lib/google.js'
+import { exchangeCode, buildRedirectUri } from '../lib/google.js'
 import { saveRefreshToken } from '../lib/token-store.js'
 
 export default async (req: Request, _context: Context) => {
@@ -25,7 +25,8 @@ export default async (req: Request, _context: Context) => {
   }
 
   try {
-    const tokens = await exchangeCode(code)
+    const redirectUri = buildRedirectUri(req.url)
+    const tokens = await exchangeCode(code, redirectUri)
 
     if (!tokens.refresh_token) {
       return new Response(

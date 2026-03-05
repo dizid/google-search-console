@@ -1,0 +1,36 @@
+name: Smoke Tests
+
+on:
+  # Manual trigger from GitHub Actions tab
+  workflow_dispatch:
+  # Auto-trigger via Netlify deploy webhook (optional setup)
+  repository_dispatch:
+    types: [netlify-deploy]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run smoke tests
+        run: npx playwright test
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-test-report
+          path: playwright-report/
+          retention-days: 7

@@ -1,12 +1,13 @@
 import '../lib/env.js'
 import type { Context } from '@netlify/functions'
-import { getAuthUrl } from '../lib/google.js'
+import { getAuthUrl, buildRedirectUri } from '../lib/google.js'
 
 export default async (req: Request, _context: Context) => {
   if (req.method !== 'GET') {
     return new Response('Method not allowed', { status: 405 })
   }
 
-  const url = getAuthUrl()
+  const redirectUri = buildRedirectUri(req.url)
+  const url = getAuthUrl(redirectUri)
   return Response.json({ url })
 }
