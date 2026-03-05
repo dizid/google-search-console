@@ -1,0 +1,82 @@
+import { google } from 'googleapis'
+import type { GscSiteEntry, VerificationToken, VerifiedResource } from './types.js'
+
+function getAuth() {
+  const oauth2 = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  )
+  oauth2.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+  return oauth2
+}
+
+const searchConsole = () => google.webmasters({ version: 'v3', auth: getAuth() })
+const siteVerification = () => google.siteVerification({ version: 'v1', auth: getAuth() })
+
+// --- Search Console ---
+
+export async function listGscSites(): Promise<GscSiteEntry[]> {
+  const res = await searchConsole().sites.list()
+  return (res.data.siteEntry as GscSiteEntry[]) || []
+}
+
+export async function addGscSite(domain: string): Promise<void> {
+  const siteUrl = `sc-domain:${domain}`
+  await searchConsole().sites.add({ siteUrl })
+}
+
+// --- Site Verification ---
+
+export async function getVerificationToken(domain: string): Promise<VerificationToken> {
+  const res = await siteVerification().webResource.getToken({
+    requestBody: {
+      site: { type: 'INET_DOMAIN', identifier: domain },
+      verificationMethod: 'DNS_TXT'
+    }
+  })
+  return res.data as VerificationToken
+}
+
+export async function verifyDomain(domain: string): Promise<VerifiedResource> {
+  const res = await siteVerification().webResource.insert({
+    verificationMethod: 'DNS_TXT',
+    requestBody: {
+      site: { type: 'INET_DOMAIN', identifier: domain }
+    }
+  })
+  return res.data as VerifiedResource
+}
+
+export async function listVerifiedSites(): Promise<VerifiedResource[]> {
+  const res = await siteVerification().webResource.list()
+  return (res.data.items as VerifiedResource[]) || []
+}
+
+// --- OAuth helpers ---
+
+export function getAuthUrl(): string {
+  const oauth2 = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  )
+  return oauth2.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/webmasters',
+      'https://www.googleapis.com/auth/siteverification'
+    ]
+  })
+}
+
+export async function exchangeCode(code: string) {
+  const oauth2 = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  )
+  const { tokens } = await oauth2.getToken(code)
+  return tokens
+}
