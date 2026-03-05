@@ -68,10 +68,13 @@ export async function listVerifiedSites(): Promise<VerifiedResource[]> {
 
 // --- OAuth helpers ---
 
-// Build redirect URI from request origin — works in any environment
-export function buildRedirectUri(requestUrl: string): string {
-  const url = new URL(requestUrl)
-  return `${url.origin}/api/auth-callback`
+// Build redirect URI from request headers — works in any environment.
+// Can't use req.url because Netlify rewrites /api/* to /.netlify/functions/*,
+// so the path (and sometimes origin) in req.url won't match what the browser sees.
+export function buildRedirectUri(req: Request): string {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || new URL(req.url).host
+  const proto = req.headers.get('x-forwarded-proto') || 'https'
+  return `${proto}://${host}/api/auth-callback`
 }
 
 export function getAuthUrl(redirectUri: string): string {

@@ -25,7 +25,7 @@ export default async (req: Request, _context: Context) => {
   }
 
   try {
-    const redirectUri = buildRedirectUri(req.url)
+    const redirectUri = buildRedirectUri(req)
     const tokens = await exchangeCode(code, redirectUri)
 
     if (!tokens.refresh_token) {
