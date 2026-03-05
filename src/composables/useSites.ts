@@ -4,6 +4,7 @@ import type { ManagedSite } from '../types'
 const sites = ref<ManagedSite[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+const googleConnected = ref(false)
 
 export function useSites() {
   async function fetchSites() {
@@ -14,6 +15,7 @@ export function useSites() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to fetch sites')
       sites.value = data.sites
+      googleConnected.value = data.googleConnected ?? false
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
     } finally {
@@ -21,5 +23,5 @@ export function useSites() {
     }
   }
 
-  return { sites, loading, error, fetchSites }
+  return { sites, loading, error, googleConnected, fetchSites }
 }

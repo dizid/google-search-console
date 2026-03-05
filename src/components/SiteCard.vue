@@ -3,7 +3,6 @@ import type { ManagedSite } from '../types'
 import StatusBadge from './StatusBadge.vue'
 
 defineProps<{ site: ManagedSite }>()
-defineEmits<{ sync: [domain: string] }>()
 </script>
 
 <template>
@@ -35,19 +34,5 @@ defineEmits<{ sync: [domain: string] }>()
 
     <!-- Error -->
     <p v-if="site.error" class="text-xs text-danger">{{ site.error }}</p>
-
-    <!-- Actions -->
-    <div class="flex gap-2 mt-auto" v-if="site.verificationStatus !== 'verified'">
-      <button
-        v-if="site.hasManagedDns"
-        @click="$emit('sync', site.domain)"
-        class="text-xs px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors"
-      >
-        Verify
-      </button>
-      <span v-else class="text-xs text-text-muted">
-        Add TXT record manually
-      </span>
-    </div>
   </div>
 </template>

@@ -1,3 +1,4 @@
+import '../lib/env.js'
 import type { Context } from '@netlify/functions'
 import { getAuthUrl } from '../lib/google.js'
 

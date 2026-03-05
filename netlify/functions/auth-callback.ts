@@ -1,5 +1,7 @@
+import '../lib/env.js'
 import type { Context } from '@netlify/functions'
 import { exchangeCode } from '../lib/google.js'
+import { saveRefreshToken } from '../lib/token-store.js'
 
 export default async (req: Request, _context: Context) => {
   if (req.method !== 'GET') {
@@ -25,17 +27,24 @@ export default async (req: Request, _context: Context) => {
   try {
     const tokens = await exchangeCode(code)
 
-    const html = renderHtml('Auth Success', `
-      <p>Google account connected successfully.</p>
-      <p>Copy this refresh token and add it as <code>GOOGLE_REFRESH_TOKEN</code> in your Netlify environment variables:</p>
-      <div class="token-box">
-        <code id="token">${tokens.refresh_token || 'No refresh token returned — try revoking access at myaccount.google.com/permissions and re-authorizing'}</code>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('token').textContent)">Copy</button>
-      </div>
-      <p><a href="/settings">Back to Settings</a></p>
-    `)
+    if (!tokens.refresh_token) {
+      return new Response(
+        renderHtml('Auth Error', `
+          <p class="error">No refresh token returned.</p>
+          <p>Revoke access at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a> and try again.</p>
+        `),
+        { headers: { 'Content-Type': 'text/html' } }
+      )
+    }
 
-    return new Response(html, { headers: { 'Content-Type': 'text/html' } })
+    // Store token automatically — no manual copy-paste needed
+    await saveRefreshToken(tokens.refresh_token)
+
+    // Redirect back to settings with success flag
+    return new Response(null, {
+      status: 302,
+      headers: { Location: '/settings?connected=true' }
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(renderHtml('Auth Error', `<p class="error">Failed to exchange code: ${message}</p>`), {
@@ -52,11 +61,8 @@ function renderHtml(title: string, body: string): string {
 <style>
   body { font-family: system-ui; background: #0f172a; color: #f8fafc; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
   code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
-  .token-box { background: #1e293b; padding: 1rem; border-radius: 8px; margin: 1rem 0; word-break: break-all; display: flex; gap: 0.5rem; align-items: start; }
-  .token-box code { background: none; flex: 1; }
-  .token-box button { background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; white-space: nowrap; }
   .error { color: #ef4444; }
   a { color: #3b82f6; }
 </style>
-</head><body><h1>${title}</h1>${body}</body></html>`
+</head><body><h1>${title}</h1>${body}<p><a href="/settings">Back to Settings</a></p></body></html>`
 }

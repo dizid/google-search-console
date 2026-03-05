@@ -5,8 +5,8 @@ import { useSync } from '../composables/useSync'
 import SiteCard from '../components/SiteCard.vue'
 import SyncButton from '../components/SyncButton.vue'
 
-const { sites, loading, error, fetchSites } = useSites()
-const { syncing, syncResult, syncError, syncAll, syncDomains } = useSync()
+const { sites, loading, error, googleConnected, fetchSites } = useSites()
+const { syncing, syncResult, syncError, syncAll } = useSync()
 
 const stats = computed(() => ({
   total: sites.value.length,
@@ -17,11 +17,6 @@ const stats = computed(() => ({
 
 async function handleSyncAll() {
   await syncAll()
-  await fetchSites()
-}
-
-async function handleSyncDomain(domain: string) {
-  await syncDomains([domain])
   await fetchSites()
 }
 
@@ -43,8 +38,17 @@ onMounted(fetchSites)
       </div>
       <div class="flex gap-2">
         <SyncButton :loading="loading" @click="fetchSites">Refresh</SyncButton>
-        <SyncButton :loading="syncing" @click="handleSyncAll">Sync All</SyncButton>
+        <SyncButton v-if="googleConnected" :loading="syncing" @click="handleSyncAll">Sync All</SyncButton>
       </div>
+    </div>
+
+    <!-- Google not connected banner -->
+    <div v-if="!loading && !googleConnected" class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm">
+      <p class="font-medium text-warning">Google account not connected</p>
+      <p class="text-text-secondary mt-1">
+        Go to <router-link to="/settings" class="text-accent hover:underline">Settings</router-link>
+        to connect your Google account before syncing sites to Search Console.
+      </p>
     </div>
 
     <!-- Sync Result Banner -->
@@ -81,7 +85,6 @@ onMounted(fetchSites)
         v-for="site in sites"
         :key="site.domain"
         :site="site"
-        @sync="handleSyncDomain"
       />
     </div>
 

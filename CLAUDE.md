@@ -28,7 +28,8 @@ API endpoints accessed via `/api/*` redirect (configured in `netlify.toml`):
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/auth-url` | GET | Generate Google OAuth URL |
-| `/api/auth-callback` | GET | Exchange OAuth code, display refresh token |
+| `/api/auth-callback` | GET | Exchange OAuth code, auto-store refresh token via Netlify Blobs |
+| `/api/auth-status` | GET | Check if Google account is connected |
 | `/api/sites` | GET | Merged view of Netlify sites + GSC status |
 | `/api/sync-background` | POST | Run sync engine (background function, 15min timeout) |
 
@@ -48,7 +49,13 @@ See `.env.example`. Required:
 - `NETLIFY_TOKEN` — Netlify Personal Access Token
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — Google OAuth2 credentials
 - `GOOGLE_REDIRECT_URI` — OAuth callback URL (use `/api/auth-callback` path)
-- `GOOGLE_REFRESH_TOKEN` — Obtained via the Settings page OAuth flow
+- `GOOGLE_REFRESH_TOKEN` — Optional fallback; normally auto-stored via Netlify Blobs after OAuth
+
+## Deployment
+
+- **Production URL:** https://googlesearchconsole.netlify.app/
+- **Netlify site:** googlesearchconsole
+- **GitHub repo:** https://github.com/dizid/google-search-console
 
 ## Key Concepts
 

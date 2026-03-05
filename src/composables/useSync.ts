@@ -11,7 +11,7 @@ export function useSync() {
     syncResult.value = null
     syncError.value = null
     try {
-      const res = await fetch('/api/sync-background', { method: 'POST' })
+      const res = await fetch('/api/sync', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Sync failed')
       syncResult.value = data
@@ -27,7 +27,7 @@ export function useSync() {
     syncResult.value = null
     syncError.value = null
     try {
-      const res = await fetch('/api/sync-background', {
+      const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domains })

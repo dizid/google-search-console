@@ -1,3 +1,4 @@
+import '../lib/env.js'
 import type { Context } from '@netlify/functions'
 import { runSync } from '../lib/sync-engine.js'
 

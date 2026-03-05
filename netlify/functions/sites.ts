@@ -1,3 +1,4 @@
+import '../lib/env.js'
 import type { Context } from '@netlify/functions'
 import { listGscSites, listVerifiedSites } from '../lib/google.js'
 import { listSites, listDnsZones } from '../lib/netlify-api.js'
@@ -71,7 +72,8 @@ export default async (req: Request, _context: Context) => {
       return a.domain.localeCompare(b.domain)
     })
 
-    return Response.json({ sites })
+    const googleConnected = !!process.env.GOOGLE_REFRESH_TOKEN
+    return Response.json({ sites, googleConnected })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return Response.json({ error: message }, { status: 500 })

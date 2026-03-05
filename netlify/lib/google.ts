@@ -1,35 +1,46 @@
 import { google } from 'googleapis'
 import type { GscSiteEntry, VerificationToken, VerifiedResource } from './types.js'
+import { loadRefreshToken } from './token-store.js'
 
-function getAuth() {
+async function getAuth() {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.GOOGLE_REDIRECT_URI
   )
-  oauth2.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+  // Blob store takes precedence, fall back to env var for backward compat
+  const refreshToken = await loadRefreshToken() ?? process.env.GOOGLE_REFRESH_TOKEN
+  oauth2.setCredentials({ refresh_token: refreshToken })
   return oauth2
 }
 
-const searchConsole = () => google.webmasters({ version: 'v3', auth: getAuth() })
-const siteVerification = () => google.siteVerification({ version: 'v1', auth: getAuth() })
+async function getSearchConsole() {
+  return google.webmasters({ version: 'v3', auth: await getAuth() })
+}
+
+async function getSiteVerification() {
+  return google.siteVerification({ version: 'v1', auth: await getAuth() })
+}
 
 // --- Search Console ---
 
 export async function listGscSites(): Promise<GscSiteEntry[]> {
-  const res = await searchConsole().sites.list()
+  const sc = await getSearchConsole()
+  const res = await sc.sites.list()
   return (res.data.siteEntry as GscSiteEntry[]) || []
 }
 
 export async function addGscSite(domain: string): Promise<void> {
   const siteUrl = `sc-domain:${domain}`
-  await searchConsole().sites.add({ siteUrl })
+  const sc = await getSearchConsole()
+  await sc.sites.add({ siteUrl })
 }
 
 // --- Site Verification ---
 
 export async function getVerificationToken(domain: string): Promise<VerificationToken> {
-  const res = await siteVerification().webResource.getToken({
+  const sv = await getSiteVerification()
+  const res = await sv.webResource.getToken({
     requestBody: {
       site: { type: 'INET_DOMAIN', identifier: domain },
       verificationMethod: 'DNS_TXT'
@@ -39,7 +50,8 @@ export async function getVerificationToken(domain: string): Promise<Verification
 }
 
 export async function verifyDomain(domain: string): Promise<VerifiedResource> {
-  const res = await siteVerification().webResource.insert({
+  const sv = await getSiteVerification()
+  const res = await sv.webResource.insert({
     verificationMethod: 'DNS_TXT',
     requestBody: {
       site: { type: 'INET_DOMAIN', identifier: domain }
@@ -49,7 +61,8 @@ export async function verifyDomain(domain: string): Promise<VerifiedResource> {
 }
 
 export async function listVerifiedSites(): Promise<VerifiedResource[]> {
-  const res = await siteVerification().webResource.list()
+  const sv = await getSiteVerification()
+  const res = await sv.webResource.list()
   return (res.data.items as VerifiedResource[]) || []
 }
 
