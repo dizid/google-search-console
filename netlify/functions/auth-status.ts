@@ -1,9 +1,11 @@
 import '../lib/env.js'
 import type { Context } from '@netlify/functions'
-import { loadRefreshToken } from '../lib/token-store.js'
+import { validateToken } from '../lib/google.js'
 
 export default async (_req: Request, _context: Context) => {
-  const token = await loadRefreshToken()
-  const connected = !!(token ?? process.env.GOOGLE_REFRESH_TOKEN)
-  return Response.json({ connected })
+  const { valid, error } = await validateToken()
+  return Response.json({
+    connected: valid,
+    error: valid ? undefined : error
+  })
 }

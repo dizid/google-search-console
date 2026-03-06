@@ -10,8 +10,29 @@ async function getAuth() {
   )
   // Blob store takes precedence, fall back to env var for backward compat
   const refreshToken = await loadRefreshToken() ?? process.env.GOOGLE_REFRESH_TOKEN
+  if (!refreshToken) {
+    throw new Error('No Google refresh token found. Connect your Google account in Settings.')
+  }
   oauth2.setCredentials({ refresh_token: refreshToken })
   return oauth2
+}
+
+// Validate that the stored refresh token is still accepted by Google
+export async function validateToken(): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const auth = await getAuth()
+    await auth.getAccessToken()
+    return { valid: true }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    if (msg.includes('invalid_grant') || msg.includes('Token has been revoked')) {
+      return { valid: false, error: 'Token revoked or expired. Please reconnect your Google account.' }
+    }
+    if (msg.includes('No Google refresh token')) {
+      return { valid: false, error: msg }
+    }
+    return { valid: false, error: msg }
+  }
 }
 
 async function getSearchConsole() {

@@ -5,7 +5,7 @@ import { useSync } from '../composables/useSync'
 import SiteCard from '../components/SiteCard.vue'
 import SyncButton from '../components/SyncButton.vue'
 
-const { sites, loading, error, googleConnected, googleError, fetchSites } = useSites()
+const { sites, loading, error, googleConnected, googleError, isAuthError, fetchSites } = useSites()
 const { syncing, syncResult, syncError, syncAll } = useSync()
 
 const stats = computed(() => ({
@@ -66,11 +66,21 @@ onMounted(fetchSites)
       </div>
     </div>
 
-    <!-- Google API Error -->
-    <div v-if="googleError" class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm">
+    <!-- Google Auth Error (token expired/revoked) -->
+    <div v-if="isAuthError" class="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm">
+      <p class="font-medium text-danger">Google token expired or revoked</p>
+      <p class="text-text-secondary mt-1">
+        Your Google authorization is no longer valid.
+        <router-link to="/settings" class="text-accent hover:underline font-medium">Reconnect your account</router-link>
+        to resume syncing.
+      </p>
+    </div>
+
+    <!-- Google API Error (generic) -->
+    <div v-else-if="googleError" class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm">
       <p class="font-medium text-warning">Google API error</p>
-      <p class="text-text-secondary mt-1">{{ googleError }}. Try
-        <router-link to="/settings" class="text-accent hover:underline">reconnecting your account</router-link>.
+      <p class="text-text-secondary mt-1">{{ googleError }}.
+        <router-link to="/settings" class="text-accent hover:underline">Try reconnecting</router-link>.
       </p>
     </div>
 

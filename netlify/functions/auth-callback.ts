@@ -38,8 +38,20 @@ export default async (req: Request, _context: Context) => {
       )
     }
 
-    // Store token automatically — no manual copy-paste needed
-    await saveRefreshToken(tokens.refresh_token)
+    // Store token — separate try/catch so we give accurate error messages
+    try {
+      await saveRefreshToken(tokens.refresh_token)
+    } catch (saveErr) {
+      const msg = saveErr instanceof Error ? saveErr.message : 'Unknown error'
+      return new Response(
+        renderHtml('Token Save Failed', `
+          <p class="error">Google authorized successfully, but we couldn't save the token.</p>
+          <p>${escapeHtml(msg)}</p>
+          <p>Try again or set <code>GOOGLE_REFRESH_TOKEN</code> manually in Netlify environment variables.</p>
+        `),
+        { status: 500, headers: { 'Content-Type': 'text/html' } }
+      )
+    }
 
     // Redirect back to settings with success flag
     return new Response(null, {

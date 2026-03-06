@@ -6,28 +6,62 @@ const route = useRoute()
 const authLoading = ref(false)
 const connected = ref(false)
 const statusLoading = ref(true)
+const statusError = ref<string | null>(null)
+const authError = ref<string | null>(null)
+const disconnecting = ref(false)
 const showSuccess = ref(route.query.connected === 'true')
 
 if (showSuccess.value) setTimeout(() => showSuccess.value = false, 5000)
 
-onMounted(async () => {
+async function checkStatus() {
+  statusLoading.value = true
+  statusError.value = null
   try {
     const res = await fetch('/api/auth-status')
     const data = await res.json()
     connected.value = data.connected
+    if (!data.connected && data.error) {
+      statusError.value = data.error
+    }
+  } catch {
+    connected.value = false
+    statusError.value = 'Could not check auth status. Network error.'
   } finally {
     statusLoading.value = false
   }
-})
+}
+
+onMounted(checkStatus)
 
 async function connectGoogle() {
   authLoading.value = true
+  authError.value = null
   try {
     const res = await fetch('/api/auth-url')
     const data = await res.json()
+    if (data.error) {
+      authError.value = data.error
+      authLoading.value = false
+      return
+    }
     if (data.url) window.location.href = data.url
   } catch {
+    authError.value = 'Failed to start Google OAuth. Check your network connection.'
     authLoading.value = false
+  }
+}
+
+async function disconnectGoogle() {
+  disconnecting.value = true
+  try {
+    await fetch('/api/auth-disconnect', { method: 'POST' })
+    connected.value = false
+    statusError.value = null
+    showSuccess.value = false
+  } catch {
+    authError.value = 'Failed to disconnect. Try again.'
+  } finally {
+    disconnecting.value = false
   }
 }
 </script>
@@ -62,26 +96,37 @@ async function connectGoogle() {
         <span>{{ connected ? 'Connected' : 'Not connected' }}</span>
       </div>
 
-      <p v-if="!connected && !statusLoading" class="text-sm text-text-secondary">
+      <!-- Error banner -->
+      <div v-if="(statusError || authError) && !statusLoading"
+        class="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+        {{ statusError || authError }}
+      </div>
+
+      <p v-if="!connected && !statusLoading && !statusError" class="text-sm text-text-secondary">
         Connect your Google account to enable Search Console access.
       </p>
 
+      <!-- Connect / Reconnect button -->
       <button
-        v-if="!connected && !statusLoading"
+        v-if="!statusLoading"
         @click="connectGoogle"
         :disabled="authLoading"
-        class="w-fit px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover disabled:opacity-50 text-white text-sm font-medium transition-colors"
+        :class="connected
+          ? 'bg-glass border border-glass-border hover:bg-glass-hover text-text-secondary'
+          : 'bg-accent hover:bg-accent-hover text-white'"
+        class="w-fit px-4 py-2 rounded-lg disabled:opacity-50 text-sm font-medium transition-colors"
       >
-        {{ authLoading ? 'Redirecting...' : 'Connect Google Account' }}
+        {{ authLoading ? 'Redirecting...' : (connected ? 'Reconnect' : 'Connect Google Account') }}
       </button>
 
+      <!-- Disconnect button -->
       <button
         v-if="connected && !statusLoading"
-        @click="connectGoogle"
-        :disabled="authLoading"
-        class="w-fit px-4 py-2 rounded-lg bg-glass border border-glass-border hover:bg-glass-hover text-text-secondary text-sm font-medium transition-colors"
+        @click="disconnectGoogle"
+        :disabled="disconnecting"
+        class="w-fit px-4 py-2 rounded-lg bg-glass border border-danger/30 hover:bg-danger/10 text-danger text-sm font-medium transition-colors disabled:opacity-50"
       >
-        {{ authLoading ? 'Redirecting...' : 'Reconnect with different account' }}
+        {{ disconnecting ? 'Disconnecting...' : 'Disconnect' }}
       </button>
     </section>
   </div>

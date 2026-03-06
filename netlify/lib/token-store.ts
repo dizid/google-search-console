@@ -4,11 +4,30 @@ const STORE_NAME = 'google-auth'
 const TOKEN_KEY = 'refresh_token'
 
 export async function saveRefreshToken(token: string): Promise<void> {
-  const store = getStore(STORE_NAME)
-  await store.set(TOKEN_KEY, token)
+  try {
+    const store = getStore(STORE_NAME)
+    await store.set(TOKEN_KEY, token)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    throw new Error(`Failed to save token to Netlify Blobs: ${msg}`)
+  }
 }
 
 export async function loadRefreshToken(): Promise<string | null> {
-  const store = getStore(STORE_NAME)
-  return await store.get(TOKEN_KEY)
+  try {
+    const store = getStore(STORE_NAME)
+    return await store.get(TOKEN_KEY)
+  } catch (err) {
+    console.error('Failed to load token from Netlify Blobs:', err)
+    return null
+  }
+}
+
+export async function deleteRefreshToken(): Promise<void> {
+  try {
+    const store = getStore(STORE_NAME)
+    await store.delete(TOKEN_KEY)
+  } catch (err) {
+    console.error('Failed to delete token from Netlify Blobs:', err)
+  }
 }
