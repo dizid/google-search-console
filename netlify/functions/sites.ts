@@ -3,6 +3,7 @@ import type { Context } from '@netlify/functions'
 import { listGscSites, listVerifiedSites } from '../lib/google.js'
 import { listSites, listDnsZones } from '../lib/netlify-api.js'
 import { getUniqueDomains, findDnsZone } from '../lib/domain-utils.js'
+import { loadRefreshToken } from '../lib/token-store.js'
 import type { ManagedSite, SiteStatus } from '../../src/types/index.js'
 
 export default async (req: Request, _context: Context) => {
@@ -12,11 +13,12 @@ export default async (req: Request, _context: Context) => {
 
   try {
     // Fetch all data sources in parallel
+    let googleError: string | null = null
     const [netlifySites, dnsZones, gscSites, verifiedSites] = await Promise.all([
       listSites(),
       listDnsZones(),
-      listGscSites().catch(() => []),
-      listVerifiedSites().catch(() => [])
+      listGscSites().catch((e) => { googleError = e instanceof Error ? e.message : 'Google API error'; return [] as never[] }),
+      listVerifiedSites().catch(() => [] as never[])
     ])
 
     // Build lookup sets for fast checking
@@ -72,8 +74,9 @@ export default async (req: Request, _context: Context) => {
       return a.domain.localeCompare(b.domain)
     })
 
-    const googleConnected = !!process.env.GOOGLE_REFRESH_TOKEN
-    return Response.json({ sites, googleConnected })
+    const token = await loadRefreshToken()
+    const googleConnected = !!(token ?? process.env.GOOGLE_REFRESH_TOKEN)
+    return Response.json({ sites, googleConnected, googleError })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return Response.json({ error: message }, { status: 500 })

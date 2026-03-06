@@ -13,7 +13,7 @@ export default async (req: Request, _context: Context) => {
   const error = url.searchParams.get('error')
 
   if (error) {
-    return new Response(renderHtml('Auth Error', `<p class="error">Google returned an error: ${error}</p>`), {
+    return new Response(renderHtml('Auth Error', `<p class="error">Google returned an error: ${escapeHtml(error)}</p>`), {
       headers: { 'Content-Type': 'text/html' }
     })
   }
@@ -48,10 +48,14 @@ export default async (req: Request, _context: Context) => {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return new Response(renderHtml('Auth Error', `<p class="error">Failed to exchange code: ${message}</p>`), {
+    return new Response(renderHtml('Auth Error', `<p class="error">Failed to exchange code: ${escapeHtml(message)}</p>`), {
       headers: { 'Content-Type': 'text/html' }
     })
   }
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function renderHtml(title: string, body: string): string {

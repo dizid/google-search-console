@@ -5,7 +5,7 @@ import { useSync } from '../composables/useSync'
 import SiteCard from '../components/SiteCard.vue'
 import SyncButton from '../components/SyncButton.vue'
 
-const { sites, loading, error, googleConnected, fetchSites } = useSites()
+const { sites, loading, error, googleConnected, googleError, fetchSites } = useSites()
 const { syncing, syncResult, syncError, syncAll } = useSync()
 
 const stats = computed(() => ({
@@ -64,6 +64,14 @@ onMounted(fetchSites)
           {{ e.domain }}: {{ e.error }}
         </p>
       </div>
+    </div>
+
+    <!-- Google API Error -->
+    <div v-if="googleError" class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm">
+      <p class="font-medium text-warning">Google API error</p>
+      <p class="text-text-secondary mt-1">{{ googleError }}. Try
+        <router-link to="/settings" class="text-accent hover:underline">reconnecting your account</router-link>.
+      </p>
     </div>
 
     <!-- Error -->
