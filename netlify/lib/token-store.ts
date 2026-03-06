@@ -17,8 +17,7 @@ export async function loadRefreshToken(): Promise<string | null> {
   try {
     const store = getStore(STORE_NAME)
     return await store.get(TOKEN_KEY)
-  } catch (err) {
-    console.error('Failed to load token from Netlify Blobs:', err)
+  } catch {
     return null
   }
 }
@@ -27,7 +26,7 @@ export async function deleteRefreshToken(): Promise<void> {
   try {
     const store = getStore(STORE_NAME)
     await store.delete(TOKEN_KEY)
-  } catch (err) {
-    console.error('Failed to delete token from Netlify Blobs:', err)
+  } catch {
+    // Silently ignore — delete is best-effort
   }
 }

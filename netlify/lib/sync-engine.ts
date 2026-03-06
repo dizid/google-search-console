@@ -69,21 +69,26 @@ export async function runSync(targetDomains?: string[]): Promise<SyncResult> {
 
       // 6. Attempt verification with retries
       let verified = false
+      let lastVerifyError = ''
       for (const delay of VERIFY_DELAYS) {
         await sleep(delay)
         try {
           await verifyDomain(domain)
           verified = true
           break
-        } catch {
-          // DNS not propagated yet, retry
+        } catch (verifyErr) {
+          lastVerifyError = verifyErr instanceof Error ? verifyErr.message : 'Unknown error'
+          // Only retry on verification-pending type errors; break on permission/auth errors
+          if (lastVerifyError.includes('403') || lastVerifyError.includes('401') || lastVerifyError.includes('permission')) {
+            break
+          }
         }
       }
 
       if (verified) {
         result.verified++
       } else {
-        result.errors.push({ domain, error: 'DNS TXT record added but verification timed out — will auto-verify once DNS propagates' })
+        result.errors.push({ domain, error: `Verification failed: ${lastVerifyError || 'timed out'} — DNS TXT record added, will auto-verify once DNS propagates` })
       }
 
       // Small delay between domains to respect rate limits
