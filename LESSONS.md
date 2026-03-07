@@ -53,7 +53,7 @@ export function buildRedirectUri(req: Request): string {
 
 **Problem:** The `/api/sites` endpoint returns HTTP 500 in production.
 
-**Likely cause:** Missing or invalid `NETLIFY_TOKEN` env var on the deployed Netlify site. The env var name must be `NETLIFY_TOKEN` everywhere — in `.env`, code, and the Netlify dashboard.
+**Likely cause:** Missing or invalid `NETLIFY_PAT` env var on the deployed Netlify site. The env var name must be `NETLIFY_PAT` everywhere — in `.env`, code, and the Netlify dashboard.
 
 **Rule:** Always verify env var names match between `.env`, code references, and the Netlify dashboard. Add a smoke test that catches this.
 

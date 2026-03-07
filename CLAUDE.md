@@ -46,7 +46,7 @@ Frontend types in `src/types/index.ts` (`ManagedSite`, `SyncResult`) are importe
 ## Environment Variables
 
 See `.env.example`. Required:
-- `NETLIFY_TOKEN` — Netlify Personal Access Token
+- `NETLIFY_PAT` — Netlify Personal Access Token
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — Google OAuth2 credentials
 - `GOOGLE_REDIRECT_URI` — OAuth callback URL (use `/api/auth-callback` path)
 - `GOOGLE_REFRESH_TOKEN` — Optional fallback; normally auto-stored via Netlify Blobs after OAuth

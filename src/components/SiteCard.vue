@@ -2,37 +2,36 @@
 import type { ManagedSite } from '../types'
 import StatusBadge from './StatusBadge.vue'
 
-defineProps<{ site: ManagedSite }>()
+defineProps<{ site: ManagedSite; syncing?: boolean }>()
 </script>
 
 <template>
-  <div class="rounded-xl border border-glass-border bg-glass backdrop-blur-sm p-4 flex flex-col gap-3 hover:border-border transition-colors">
-    <!-- Header -->
-    <div class="flex items-start justify-between gap-2">
-      <div class="min-w-0">
-        <h3 class="text-sm font-semibold text-text-primary truncate">{{ site.domain }}</h3>
-        <p class="text-xs text-text-muted truncate">{{ site.netlifySiteName }}</p>
+  <div class="flex items-center gap-3 px-4 py-3 rounded-lg border border-glass-border bg-glass backdrop-blur-sm hover:border-border transition-colors">
+    <!-- Status dot -->
+    <span
+      class="w-2.5 h-2.5 rounded-full shrink-0"
+      :class="{
+        'bg-success': site.verificationStatus === 'verified',
+        'bg-warning': site.verificationStatus === 'pending_verification' || site.verificationStatus === 'discovered',
+        'bg-danger': site.verificationStatus === 'error',
+        'bg-text-muted': site.verificationStatus === 'manual_required',
+        'animate-pulse': syncing && site.verificationStatus !== 'verified'
+      }"
+    ></span>
+
+    <!-- Domain info -->
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2">
+        <h3 class="text-sm font-medium text-text-primary truncate">{{ site.domain }}</h3>
       </div>
-      <StatusBadge :status="site.verificationStatus" />
+      <p class="text-xs text-text-muted truncate">
+        {{ site.netlifySiteName }}
+        <span v-if="site.hasManagedDns"> &middot; Netlify DNS</span>
+        <span v-if="site.gscExists"> &middot; In GSC</span>
+      </p>
     </div>
 
-    <!-- Details -->
-    <div class="flex flex-wrap gap-2 text-xs text-text-secondary">
-      <span v-if="site.hasManagedDns" class="flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
-        Netlify DNS
-      </span>
-      <span v-else class="flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
-        External DNS
-      </span>
-      <span v-if="site.gscExists" class="flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
-        In GSC
-      </span>
-    </div>
-
-    <!-- Error -->
-    <p v-if="site.error" class="text-xs text-danger">{{ site.error }}</p>
+    <!-- Status badge -->
+    <StatusBadge :status="site.verificationStatus" class="shrink-0" />
   </div>
 </template>

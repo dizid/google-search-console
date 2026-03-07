@@ -6,7 +6,7 @@ Copy `.env.example` to `.env` and fill in the values:
 
 | Variable | Where to get it |
 |----------|----------------|
-| `NETLIFY_TOKEN` | [app.netlify.com/user/applications](https://app.netlify.com/user/applications#personal-access-tokens) — Personal Access Token |
+| `NETLIFY_PAT` | [app.netlify.com/user/applications](https://app.netlify.com/user/applications#personal-access-tokens) — Personal Access Token |
 | `GOOGLE_CLIENT_ID` | Google Cloud Console → Credentials → OAuth 2.0 Client ID |
 | `GOOGLE_CLIENT_SECRET` | Same as above |
 | `GOOGLE_REDIRECT_URI` | `http://localhost:5173/api/auth-callback` (local) or `https://your-site.netlify.app/api/auth-callback` (prod) |

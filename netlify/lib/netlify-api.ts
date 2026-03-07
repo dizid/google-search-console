@@ -4,7 +4,7 @@ const BASE = 'https://api.netlify.com/api/v1'
 
 function headers() {
   return {
-    'Authorization': `Bearer ${process.env.NETLIFY_TOKEN}`,
+    'Authorization': `Bearer ${process.env.NETLIFY_PAT}`,
     'Content-Type': 'application/json'
   }
 }

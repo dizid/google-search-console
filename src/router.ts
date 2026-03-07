@@ -5,6 +5,6 @@ export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: DashboardView },
-    { path: '/settings', component: () => import('./views/SettingsView.vue') }
+    { path: '/settings', redirect: '/' }
   ]
 })
