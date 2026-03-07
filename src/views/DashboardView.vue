@@ -79,7 +79,13 @@ function handleDisconnected() {
   fetchSites()
 }
 
-onMounted(fetchSites)
+onMounted(async () => {
+  await fetchSites()
+  // Auto-sync discovered sites without requiring manual click
+  if (googleConnected.value && stats.value.pending > 0 && !syncing.value) {
+    await handleSync()
+  }
+})
 </script>
 
 <template>
