@@ -1,20 +1,22 @@
 import { ref } from 'vue'
-import type { SyncResult } from '../types'
 
 const syncing = ref(false)
-const syncResult = ref<SyncResult | null>(null)
+const syncStarted = ref(false)
 const syncError = ref<string | null>(null)
 
 export function useSync() {
+  // Background function returns 202 immediately — no result body
   async function syncAll() {
     syncing.value = true
-    syncResult.value = null
+    syncStarted.value = false
     syncError.value = null
     try {
-      const res = await fetch('/api/sync', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Sync failed')
-      syncResult.value = data
+      const res = await fetch('/api/sync-background', { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Sync failed (${res.status})`)
+      }
+      syncStarted.value = true
     } catch (err) {
       syncError.value = err instanceof Error ? err.message : 'Unknown error'
     } finally {
@@ -24,17 +26,19 @@ export function useSync() {
 
   async function syncDomains(domains: string[]) {
     syncing.value = true
-    syncResult.value = null
+    syncStarted.value = false
     syncError.value = null
     try {
-      const res = await fetch('/api/sync', {
+      const res = await fetch('/api/sync-background', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domains })
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Sync failed')
-      syncResult.value = data
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Sync failed (${res.status})`)
+      }
+      syncStarted.value = true
     } catch (err) {
       syncError.value = err instanceof Error ? err.message : 'Unknown error'
     } finally {
@@ -42,5 +46,5 @@ export function useSync() {
     }
   }
 
-  return { syncing, syncResult, syncError, syncAll, syncDomains }
+  return { syncing, syncStarted, syncError, syncAll, syncDomains }
 }

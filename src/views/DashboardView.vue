@@ -6,7 +6,7 @@ import SiteCard from '../components/SiteCard.vue'
 import SyncButton from '../components/SyncButton.vue'
 
 const { sites, loading, error, googleConnected, googleError, isAuthError, fetchSites } = useSites()
-const { syncing, syncResult, syncError, syncAll } = useSync()
+const { syncing, syncStarted, syncError, syncAll } = useSync()
 
 const stats = computed(() => ({
   total: sites.value.length,
@@ -17,7 +17,7 @@ const stats = computed(() => ({
 
 async function handleSyncAll() {
   await syncAll()
-  await fetchSites()
+  // Background function runs async — refresh after a delay to check progress
 }
 
 onMounted(fetchSites)
@@ -51,19 +51,13 @@ onMounted(fetchSites)
       </p>
     </div>
 
-    <!-- Sync Result Banner -->
-    <div v-if="syncResult" class="rounded-lg border border-success/30 bg-success/10 p-4 text-sm">
-      <p class="font-medium text-success">Sync complete</p>
+    <!-- Sync Started Banner -->
+    <div v-if="syncStarted" class="rounded-lg border border-success/30 bg-success/10 p-4 text-sm">
+      <p class="font-medium text-success">Sync started</p>
       <p class="text-text-secondary mt-1">
-        {{ syncResult.added }} added &middot;
-        {{ syncResult.verified }} verified &middot;
-        {{ syncResult.skipped }} skipped
+        DNS verification runs in the background and may take a few minutes.
+        Click <strong>Refresh</strong> to check progress.
       </p>
-      <div v-if="syncResult.errors.length" class="mt-2 space-y-1">
-        <p v-for="e in syncResult.errors" :key="e.domain" class="text-xs text-warning">
-          {{ e.domain }}: {{ e.error }}
-        </p>
-      </div>
     </div>
 
     <!-- Google Auth Error (token expired/revoked) -->
