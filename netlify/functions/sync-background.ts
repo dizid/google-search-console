@@ -10,8 +10,8 @@ export default async (req: Request, _context: Context) => {
   }
 
   try {
-    const body = await req.json().catch(() => ({})) as { domains?: string[] }
-    const result = await runSync(body.domains)
+    const body = await req.json().catch(() => ({})) as { domains?: string[]; forceRegenerate?: boolean }
+    const result = await runSync(body.domains, body.forceRegenerate ?? false)
     return Response.json(result)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

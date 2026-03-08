@@ -14,7 +14,7 @@ function sleep(ms: number) {
  * Run the full sync: discover Netlify sites → add to GSC → verify via DNS.
  * Designed to run in a background function (up to 15 min timeout).
  */
-export async function runSync(targetDomains?: string[]): Promise<SyncResult> {
+export async function runSync(targetDomains?: string[], forceRegenerate = false): Promise<SyncResult> {
   const result: SyncResult = { total: 0, added: 0, verified: 0, skipped: 0, errors: [] }
 
   // 1. Discover sites
@@ -107,7 +107,7 @@ export async function runSync(targetDomains?: string[]): Promise<SyncResult> {
   for (const [domain, site] of domains) {
     if (!verifiedDomains.has(domain)) continue
     try {
-      const sitemapResult = await processSitemap(domain, site.id)
+      const sitemapResult = await processSitemap(domain, site.id, forceRegenerate)
       if (sitemapResult.status === 'failed' && sitemapResult.error) {
         result.errors.push({ domain, error: `Sitemap: ${sitemapResult.error}` })
       }

@@ -68,6 +68,18 @@ async function handleSync() {
   }
 }
 
+async function handleRegenerate() {
+  await syncAll({ forceRegenerate: true })
+  if (syncStarted.value) {
+    toastMessage.value = 'Regenerating sitemaps in the background — old sitemaps will be replaced.'
+    toastType.value = 'success'
+  }
+  if (syncError.value) {
+    toastMessage.value = syncError.value
+    toastType.value = 'error'
+  }
+}
+
 async function handleRefresh() {
   await fetchSites()
   if (error.value) {
@@ -126,6 +138,18 @@ onMounted(async () => {
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
         {{ syncing ? 'Syncing...' : stats.pending > 0 ? `Sync ${stats.pending} Pending` : `Submit ${stats.missingSitemaps} Sitemaps` }}
+      </button>
+      <button
+        v-if="googleConnected && stats.sitemaps > 0"
+        @click="handleRegenerate"
+        :disabled="syncing"
+        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-glass border border-glass-border hover:bg-surface-overlay disabled:opacity-50 text-text-secondary text-sm font-medium transition-colors"
+      >
+        <svg v-if="syncing" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        Regenerate Sitemaps
       </button>
       <button
         @click="handleRefresh"

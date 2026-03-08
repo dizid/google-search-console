@@ -1,4 +1,4 @@
-import { submitSitemap, listSitemaps, requestIndexing } from './google.js'
+import { submitSitemap, listSitemaps, deleteSitemap, requestIndexing } from './google.js'
 import { deploySitemapFile, listDeployHtmlPaths } from './netlify-api.js'
 
 export interface SitemapResult {
@@ -178,7 +178,8 @@ function escapeXml(str: string): string {
 
 export async function processSitemap(
   domain: string,
-  netlifySiteId: string
+  netlifySiteId: string,
+  forceRegenerate = false
 ): Promise<SitemapResult> {
   const result: SitemapResult = {
     domain,
@@ -190,42 +191,49 @@ export async function processSitemap(
   try {
     // 1. Check if any sitemap already submitted to GSC
     const existing = await listSitemaps(domain).catch(() => [])
-    if (existing.length > 0) {
+
+    if (forceRegenerate && existing.length > 0) {
+      // Delete all existing sitemaps from GSC so we can resubmit fresh ones
+      for (const s of existing) {
+        await deleteSitemap(domain, s.path).catch(() => {})
+      }
+    } else if (existing.length > 0) {
       result.sitemapUrl = existing[0].path
       result.status = 'already_submitted'
-    } else {
-      // 2. Discover sitemaps via robots.txt + common paths
-      const discovered = await discoverSitemapUrls(domain)
+      return result
+    }
+
+    // 2. Discover sitemaps via robots.txt + common paths
+    const discovered = await discoverSitemapUrls(domain)
 
       if (discovered.length > 0) {
-        for (const url of discovered) {
-          await submitSitemap(domain, url)
-        }
-        result.sitemapUrl = discovered[0]
-        result.status = 'submitted'
-      } else {
-        // 3. Generate sitemap — use Netlify deploy files API first
-        const htmlPaths = await listDeployHtmlPaths(netlifySiteId)
-
-        let xml: string
-        if (htmlPaths.length > 1) {
-          // Multiple HTML files = prerendered/SSG site — use deploy file listing
-          xml = buildSitemapFromPaths(domain, htmlPaths)
-          result.pagesFound = htmlPaths.length
-        } else {
-          // Only index.html = pure SPA — fall back to recursive crawl
-          const urls = await crawlSite(domain)
-          xml = buildSitemapXml(urls)
-          result.pagesFound = urls.size
-        }
-
-        await deploySitemapFile(netlifySiteId, xml)
-        await sleep(5_000)
-        const sitemapUrl = `https://${domain}/sitemap.xml`
-        await submitSitemap(domain, sitemapUrl)
-        result.sitemapUrl = sitemapUrl
-        result.status = 'generated'
+      for (const url of discovered) {
+        await submitSitemap(domain, url)
       }
+      result.sitemapUrl = discovered[0]
+      result.status = 'submitted'
+    } else {
+      // 3. Generate sitemap — use Netlify deploy files API first
+      const htmlPaths = await listDeployHtmlPaths(netlifySiteId)
+
+      let xml: string
+      if (htmlPaths.length > 1) {
+        // Multiple HTML files = prerendered/SSG site — use deploy file listing
+        xml = buildSitemapFromPaths(domain, htmlPaths)
+        result.pagesFound = htmlPaths.length
+      } else {
+        // Only index.html = pure SPA — fall back to recursive crawl
+        const urls = await crawlSite(domain)
+        xml = buildSitemapXml(urls)
+        result.pagesFound = urls.size
+      }
+
+      await deploySitemapFile(netlifySiteId, xml)
+      await sleep(5_000)
+      const sitemapUrl = `https://${domain}/sitemap.xml`
+      await submitSitemap(domain, sitemapUrl)
+      result.sitemapUrl = sitemapUrl
+      result.status = 'generated'
     }
 
     // Request indexing for the homepage

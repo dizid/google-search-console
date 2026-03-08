@@ -6,12 +6,16 @@ const syncError = ref<string | null>(null)
 
 export function useSync() {
   // Background function returns 202 immediately — no result body
-  async function syncAll() {
+  async function syncAll(opts?: { forceRegenerate?: boolean }) {
     syncing.value = true
     syncStarted.value = false
     syncError.value = null
     try {
-      const res = await fetch('/api/sync-background', { method: 'POST' })
+      const body = opts?.forceRegenerate ? JSON.stringify({ forceRegenerate: true }) : undefined
+      const res = await fetch('/api/sync-background', {
+        method: 'POST',
+        ...(body ? { headers: { 'Content-Type': 'application/json' }, body } : {})
+      })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || `Sync failed (${res.status})`)

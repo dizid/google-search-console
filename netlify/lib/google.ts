@@ -109,6 +109,12 @@ export async function submitSitemap(domain: string, sitemapUrl: string): Promise
   await sc.sitemaps.submit({ siteUrl, feedpath: sitemapUrl })
 }
 
+export async function deleteSitemap(domain: string, sitemapUrl: string): Promise<void> {
+  const sc = await getSearchConsole()
+  const siteUrl = `sc-domain:${domain}`
+  await sc.sitemaps.delete({ siteUrl, feedpath: sitemapUrl })
+}
+
 // --- Indexing ---
 
 export async function requestIndexing(url: string): Promise<void> {
