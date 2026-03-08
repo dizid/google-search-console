@@ -53,6 +53,42 @@ export async function createTxtRecord(
   return res.json() as Promise<NetlifyDnsRecord>
 }
 
+// List all HTML route paths from the current production deploy.
+// Converts deploy file paths to clean URL paths (e.g. /about/index.html → /about/).
+export async function listDeployHtmlPaths(siteId: string): Promise<string[]> {
+  const deployRes = await fetch(`${BASE}/sites/${siteId}/deploys?per_page=1`, { headers: headers() })
+  if (!deployRes.ok) throw new Error(`Netlify deploys list error: ${deployRes.status}`)
+  const deploys = await deployRes.json() as Array<{ id: string }>
+  if (deploys.length === 0) return []
+
+  const filesRes = await fetch(`${BASE}/deploys/${deploys[0].id}/files`, { headers: headers() })
+  if (!filesRes.ok) throw new Error(`Netlify files list error: ${filesRes.status}`)
+  const files = await filesRes.json() as Array<{ path: string; sha: string }>
+
+  // Excluded filenames that aren't real routes
+  const excludedNames = new Set(['404.html', '200.html', 'offline.html'])
+
+  const paths: string[] = []
+  for (const f of files) {
+    if (!f.path.endsWith('.html')) continue
+    const filename = f.path.split('/').pop() || ''
+    if (excludedNames.has(filename)) continue
+    // Skip asset/build directories
+    if (f.path.includes('/assets/') || f.path.includes('/_nuxt/') || f.path.includes('/.netlify/')) continue
+
+    // Convert to clean URL path
+    let urlPath = f.path
+    if (urlPath.endsWith('/index.html')) {
+      urlPath = urlPath.slice(0, -'index.html'.length) // /about/index.html → /about/
+    } else if (urlPath.endsWith('.html')) {
+      urlPath = urlPath.slice(0, -'.html'.length) // /contact.html → /contact
+    }
+    paths.push(urlPath)
+  }
+
+  return paths
+}
+
 // Deploy a sitemap.xml file to an existing Netlify site.
 // Creates a new deploy with the sitemap merged into the current deploy's files.
 export async function deploySitemapFile(siteId: string, sitemapXml: string): Promise<void> {

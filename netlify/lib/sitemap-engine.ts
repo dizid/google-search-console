@@ -1,11 +1,12 @@
 import { submitSitemap, listSitemaps, requestIndexing } from './google.js'
-import { deploySitemapFile } from './netlify-api.js'
+import { deploySitemapFile, listDeployHtmlPaths } from './netlify-api.js'
 
 export interface SitemapResult {
   domain: string
   sitemapUrl: string | null
   status: 'submitted' | 'already_submitted' | 'generated' | 'failed'
   indexingRequested: boolean
+  pagesFound?: number
   error?: string
 }
 
@@ -37,8 +38,7 @@ async function discoverSitemapUrls(domain: string): Promise<string[]> {
     const res = await fetch(`${origin}/robots.txt`, { redirect: 'follow' })
     if (res.ok) {
       const text = await res.text()
-      const lines = text.split('\n')
-      for (const line of lines) {
+      for (const line of text.split('\n')) {
         const match = line.match(/^\s*Sitemap:\s*(.+)/i)
         if (match) {
           const url = match[1].trim()
@@ -51,15 +51,11 @@ async function discoverSitemapUrls(domain: string): Promise<string[]> {
   }
 
   // 2. Check common alternate sitemap paths
-  const commonPaths = [
-    '/sitemap.xml',
-    '/sitemap_index.xml',
-    '/sitemap-index.xml',
-  ]
+  const commonPaths = ['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml']
   const checks = await Promise.allSettled(
     commonPaths.map(async (path) => {
       const url = `${origin}${path}`
-      if (found.has(url)) return null // Already found via robots.txt
+      if (found.has(url)) return null
       return (await sitemapExists(url)) ? url : null
     })
   )
@@ -70,18 +66,34 @@ async function discoverSitemapUrls(domain: string): Promise<string[]> {
   return [...found]
 }
 
-// --- Recursive Crawl ---
+// --- Sitemap Generation from Netlify Deploy Files ---
 
-const MAX_URLS = 500       // Max URLs to include in generated sitemap
-const MAX_PAGES = 50       // Max pages to actually fetch (bandwidth limit)
-const CRAWL_DEPTH = 2      // How many levels deep to follow links
-const BATCH_SIZE = 5       // Concurrent fetches per batch
+// Build a sitemap using the Netlify deploy files API (lists all HTML files in the deploy).
+// This is far more reliable than crawling for SPAs and static sites.
+function buildSitemapFromPaths(domain: string, paths: string[]): string {
+  const origin = `https://${domain}`
+  const today = new Date().toISOString().split('T')[0]
+  const entries = paths.map(path =>
+    `  <url>\n    <loc>${escapeXml(origin + path)}</loc>\n    <lastmod>${today}</lastmod>\n  </url>`
+  ).join('\n')
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries}
+</urlset>`
+}
+
+// --- Crawl Fallback (for pure SPAs where deploy only has index.html) ---
+
+const MAX_URLS = 500
+const MAX_PAGES = 50
+const CRAWL_DEPTH = 2
+const BATCH_SIZE = 5
 
 function isAssetUrl(path: string): boolean {
   return /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|pdf|zip|mp4|webp|webm|map|json)$/i.test(path)
 }
 
-// Extract same-origin internal links from HTML
 function extractLinks(html: string, origin: string): string[] {
   const links: string[] = []
   const hrefRegex = /href=["']([^"']+)["']/g
@@ -101,23 +113,17 @@ function extractLinks(html: string, origin: string): string[] {
   return links
 }
 
-// Crawl a site recursively up to CRAWL_DEPTH levels, collecting internal URLs
 async function crawlSite(domain: string): Promise<Set<string>> {
   const origin = `https://${domain}`
   const allUrls = new Set<string>([origin + '/'])
   const visited = new Set<string>()
   let pagesFetched = 0
-
-  // BFS: process level by level
   let currentLevel = [origin + '/']
 
   for (let depth = 0; depth <= CRAWL_DEPTH && currentLevel.length > 0; depth++) {
     const nextLevel: string[] = []
-
-    // Process current level in batches
     for (let i = 0; i < currentLevel.length; i += BATCH_SIZE) {
       if (pagesFetched >= MAX_PAGES || allUrls.size >= MAX_URLS) break
-
       const batch = currentLevel.slice(i, i + BATCH_SIZE)
         .filter(url => !visited.has(url))
         .slice(0, MAX_PAGES - pagesFetched)
@@ -144,14 +150,13 @@ async function crawlSite(domain: string): Promise<Set<string>> {
         }
       }
     }
-
     currentLevel = nextLevel
   }
 
   return allUrls
 }
 
-// --- XML Building ---
+// --- XML helpers ---
 
 function buildSitemapXml(urls: Set<string>): string {
   const today = new Date().toISOString().split('T')[0]
@@ -193,18 +198,28 @@ export async function processSitemap(
       const discovered = await discoverSitemapUrls(domain)
 
       if (discovered.length > 0) {
-        // Submit all discovered sitemaps to GSC
         for (const url of discovered) {
           await submitSitemap(domain, url)
         }
         result.sitemapUrl = discovered[0]
         result.status = 'submitted'
       } else {
-        // 3. No existing sitemap — crawl and generate one
-        const urls = await crawlSite(domain)
-        const xml = buildSitemapXml(urls)
+        // 3. Generate sitemap — use Netlify deploy files API first
+        const htmlPaths = await listDeployHtmlPaths(netlifySiteId)
+
+        let xml: string
+        if (htmlPaths.length > 1) {
+          // Multiple HTML files = prerendered/SSG site — use deploy file listing
+          xml = buildSitemapFromPaths(domain, htmlPaths)
+          result.pagesFound = htmlPaths.length
+        } else {
+          // Only index.html = pure SPA — fall back to recursive crawl
+          const urls = await crawlSite(domain)
+          xml = buildSitemapXml(urls)
+          result.pagesFound = urls.size
+        }
+
         await deploySitemapFile(netlifySiteId, xml)
-        // Wait for deploy to propagate
         await sleep(5_000)
         const sitemapUrl = `https://${domain}/sitemap.xml`
         await submitSitemap(domain, sitemapUrl)
