@@ -26,7 +26,9 @@ const stats = computed(() => ({
   total: sites.value.length,
   verified: sites.value.filter(s => s.verificationStatus === 'verified').length,
   pending: sites.value.filter(s => ['discovered', 'pending_verification'].includes(s.verificationStatus)).length,
-  manual: sites.value.filter(s => s.verificationStatus === 'manual_required').length
+  manual: sites.value.filter(s => s.verificationStatus === 'manual_required').length,
+  sitemaps: sites.value.filter(s => s.sitemapStatus === 'submitted' || s.sitemapStatus === 'generated').length,
+  missingSitemaps: sites.value.filter(s => s.sitemapStatus === 'missing').length
 }))
 
 const filteredSites = computed(() => {
@@ -55,7 +57,9 @@ async function reconnectGoogle() {
 async function handleSync() {
   await syncAll()
   if (syncStarted.value) {
-    toastMessage.value = 'Sync started — DNS verification runs in the background.'
+    toastMessage.value = stats.value.pending > 0
+      ? 'Sync started — DNS verification runs in the background.'
+      : 'Sitemap processing started in the background.'
     toastType.value = 'success'
   }
   if (syncError.value) {
@@ -105,14 +109,14 @@ onMounted(async () => {
 
       <!-- Stats bar -->
       <div v-if="stats.total > 0" class="text-sm text-text-secondary">
-        {{ stats.total }} sites &middot; {{ stats.verified }} verified &middot; {{ stats.pending }} pending
+        {{ stats.total }} sites &middot; {{ stats.verified }} verified &middot; {{ stats.pending }} pending &middot; {{ stats.sitemaps }} sitemaps
       </div>
     </div>
 
     <!-- Actions row -->
     <div class="flex items-center gap-2">
       <button
-        v-if="googleConnected && stats.pending > 0"
+        v-if="googleConnected && (stats.pending > 0 || stats.missingSitemaps > 0)"
         @click="handleSync"
         :disabled="syncing"
         class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover disabled:opacity-50 text-white text-sm font-medium transition-colors"
@@ -121,7 +125,7 @@ onMounted(async () => {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        {{ syncing ? 'Syncing...' : `Sync ${stats.pending} Pending` }}
+        {{ syncing ? 'Syncing...' : stats.pending > 0 ? `Sync ${stats.pending} Pending` : `Submit ${stats.missingSitemaps} Sitemaps` }}
       </button>
       <button
         @click="handleRefresh"
