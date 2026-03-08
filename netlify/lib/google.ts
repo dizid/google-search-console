@@ -1,5 +1,5 @@
 import { google } from 'googleapis'
-import type { GscSiteEntry, VerificationToken, VerifiedResource } from './types.js'
+import type { GscSiteEntry, GscSitemapEntry, VerificationToken, VerifiedResource } from './types.js'
 import { loadRefreshToken } from './token-store.js'
 
 async function getAuth() {
@@ -87,6 +87,38 @@ export async function listVerifiedSites(): Promise<VerifiedResource[]> {
   return (res.data.items as VerifiedResource[]) || []
 }
 
+// --- Sitemaps ---
+
+export async function listSitemaps(domain: string): Promise<GscSitemapEntry[]> {
+  const sc = await getSearchConsole()
+  const siteUrl = `sc-domain:${domain}`
+  const res = await sc.sitemaps.list({ siteUrl })
+  const items = res.data.sitemap || []
+  return items.map((s) => ({
+    path: s.path || '',
+    lastSubmitted: s.lastSubmitted || null,
+    isPending: s.isPending || false,
+    errors: Number(s.errors) || 0,
+    warnings: Number(s.warnings) || 0
+  }))
+}
+
+export async function submitSitemap(domain: string, sitemapUrl: string): Promise<void> {
+  const sc = await getSearchConsole()
+  const siteUrl = `sc-domain:${domain}`
+  await sc.sitemaps.submit({ siteUrl, feedpath: sitemapUrl })
+}
+
+// --- Indexing ---
+
+export async function requestIndexing(url: string): Promise<void> {
+  const auth = await getAuth()
+  const indexing = google.indexing({ version: 'v3', auth })
+  await indexing.urlNotifications.publish({
+    requestBody: { url, type: 'URL_UPDATED' }
+  })
+}
+
 // --- OAuth helpers ---
 
 // Build redirect URI from request headers — works in any environment.
@@ -109,7 +141,8 @@ export function getAuthUrl(redirectUri: string): string {
     prompt: 'consent',
     scope: [
       'https://www.googleapis.com/auth/webmasters',
-      'https://www.googleapis.com/auth/siteverification'
+      'https://www.googleapis.com/auth/siteverification',
+      'https://www.googleapis.com/auth/indexing'
     ]
   })
 }

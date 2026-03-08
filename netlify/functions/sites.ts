@@ -1,6 +1,6 @@
 import '../lib/env.js'
 import type { Context } from '@netlify/functions'
-import { listGscSites, listVerifiedSites } from '../lib/google.js'
+import { listGscSites, listVerifiedSites, listSitemaps } from '../lib/google.js'
 import { listSites, listDnsZones } from '../lib/netlify-api.js'
 import { getUniqueDomains, findDnsZone } from '../lib/domain-utils.js'
 import { loadRefreshToken } from '../lib/token-store.js'
@@ -32,6 +32,22 @@ export default async (req: Request, _context: Context) => {
     // Get unique domains from Netlify sites
     const domainMap = getUniqueDomains(netlifySites)
 
+    // Fetch sitemaps for verified domains (in parallel, max 5 at a time)
+    const sitemapMap = new Map<string, string | null>()
+    const verifiedDomainList = [...domainMap.keys()].filter(d => verifiedDomains.has(d))
+    const sitemapResults = await Promise.allSettled(
+      verifiedDomainList.map(async (domain) => {
+        const sitemaps = await listSitemaps(domain).catch(() => [])
+        return { domain, sitemaps }
+      })
+    )
+    for (const r of sitemapResults) {
+      if (r.status === 'fulfilled') {
+        const url = r.value.sitemaps.length > 0 ? r.value.sitemaps[0].path : null
+        sitemapMap.set(r.value.domain, url)
+      }
+    }
+
     // Build merged site list
     const sites: ManagedSite[] = []
 
@@ -50,6 +66,12 @@ export default async (req: Request, _context: Context) => {
         verificationStatus = 'manual_required'
       }
 
+      const sitemapUrl = sitemapMap.get(domain) ?? null
+      let sitemapStatus: ManagedSite['sitemapStatus'] = null
+      if (isVerified) {
+        sitemapStatus = sitemapUrl ? 'submitted' : 'missing'
+      }
+
       sites.push({
         domain,
         netlifySiteId: site.id,
@@ -63,7 +85,10 @@ export default async (req: Request, _context: Context) => {
         gscPermissionLevel: gscMap.get(gscPropertyUrl) || null,
         verificationStatus,
         verificationToken: null,
-        error: null
+        error: null,
+        sitemapUrl,
+        sitemapStatus,
+        indexingRequested: false
       })
     }
 

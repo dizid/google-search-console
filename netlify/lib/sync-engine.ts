@@ -1,6 +1,7 @@
-import { addGscSite, getVerificationToken, verifyDomain, listGscSites } from './google.js'
+import { addGscSite, getVerificationToken, verifyDomain, listGscSites, listVerifiedSites } from './google.js'
 import { listSites, listDnsZones, getDnsRecords, createTxtRecord } from './netlify-api.js'
 import { getUniqueDomains, findDnsZone } from './domain-utils.js'
+import { processSitemap } from './sitemap-engine.js'
 import type { SyncResult } from '../../src/types/index.js'
 
 const VERIFY_DELAYS = [30_000, 60_000, 120_000] // Retry delays in ms
@@ -96,6 +97,24 @@ export async function runSync(targetDomains?: string[]): Promise<SyncResult> {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       result.errors.push({ domain, error: message })
+    }
+  }
+
+  // 7. Process sitemaps + indexing for all verified sites
+  const verifiedSites = await listVerifiedSites().catch(() => [])
+  const verifiedDomains = new Set(verifiedSites.filter(v => v.site.type === 'INET_DOMAIN').map(v => v.site.identifier))
+
+  for (const [domain, site] of domains) {
+    if (!verifiedDomains.has(domain)) continue
+    try {
+      const sitemapResult = await processSitemap(domain, site.id)
+      if (sitemapResult.status === 'failed' && sitemapResult.error) {
+        result.errors.push({ domain, error: `Sitemap: ${sitemapResult.error}` })
+      }
+      await sleep(200)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      result.errors.push({ domain, error: `Sitemap: ${message}` })
     }
   }
 

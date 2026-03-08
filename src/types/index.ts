@@ -21,6 +21,9 @@ export interface ManagedSite {
   verificationStatus: SiteStatus
   verificationToken: string | null
   error: string | null
+  sitemapUrl: string | null
+  sitemapStatus: 'submitted' | 'missing' | 'generated' | null
+  indexingRequested: boolean
 }
 
 export interface SyncResult {

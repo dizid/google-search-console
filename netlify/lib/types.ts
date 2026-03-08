@@ -28,6 +28,14 @@ export interface NetlifyDnsRecord {
 
 // Google API response types
 
+export interface GscSitemapEntry {
+  path: string
+  lastSubmitted: string | null
+  isPending: boolean
+  errors: number
+  warnings: number
+}
+
 export interface GscSiteEntry {
   siteUrl: string
   permissionLevel: string

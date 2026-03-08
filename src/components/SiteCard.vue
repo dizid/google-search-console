@@ -28,6 +28,9 @@ defineProps<{ site: ManagedSite; syncing?: boolean }>()
         {{ site.netlifySiteName }}
         <span v-if="site.hasManagedDns"> &middot; Netlify DNS</span>
         <span v-if="site.gscExists"> &middot; In GSC</span>
+        <span v-if="site.sitemapStatus === 'submitted'" class="text-success"> &middot; Sitemap</span>
+        <span v-else-if="site.sitemapStatus === 'generated'" class="text-accent"> &middot; Sitemap (generated)</span>
+        <span v-else-if="site.sitemapStatus === 'missing'" class="text-warning"> &middot; No sitemap</span>
       </p>
     </div>
 
