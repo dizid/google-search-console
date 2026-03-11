@@ -203,38 +203,40 @@ export async function processSitemap(
       return result
     }
 
-    // 2. Discover sitemaps via robots.txt + common paths
-    const discovered = await discoverSitemapUrls(domain)
-
+    if (!forceRegenerate) {
+      // 2. Discover sitemaps via robots.txt + common paths (skip when regenerating)
+      const discovered = await discoverSitemapUrls(domain)
       if (discovered.length > 0) {
-      for (const url of discovered) {
-        await submitSitemap(domain, url)
+        for (const url of discovered) {
+          await submitSitemap(domain, url)
+        }
+        result.sitemapUrl = discovered[0]
+        result.status = 'submitted'
+        return result
       }
-      result.sitemapUrl = discovered[0]
-      result.status = 'submitted'
-    } else {
-      // 3. Generate sitemap — use Netlify deploy files API first
-      const htmlPaths = await listDeployHtmlPaths(netlifySiteId)
-
-      let xml: string
-      if (htmlPaths.length > 1) {
-        // Multiple HTML files = prerendered/SSG site — use deploy file listing
-        xml = buildSitemapFromPaths(domain, htmlPaths)
-        result.pagesFound = htmlPaths.length
-      } else {
-        // Only index.html = pure SPA — fall back to recursive crawl
-        const urls = await crawlSite(domain)
-        xml = buildSitemapXml(urls)
-        result.pagesFound = urls.size
-      }
-
-      await deploySitemapFile(netlifySiteId, xml)
-      await sleep(5_000)
-      const sitemapUrl = `https://${domain}/sitemap.xml`
-      await submitSitemap(domain, sitemapUrl)
-      result.sitemapUrl = sitemapUrl
-      result.status = 'generated'
     }
+
+    // 3. Generate sitemap — use Netlify deploy files API, then crawl fallback
+    const htmlPaths = await listDeployHtmlPaths(netlifySiteId)
+
+    let xml: string
+    if (htmlPaths.length > 1) {
+      // Multiple HTML files = prerendered/SSG site — use deploy file listing
+      xml = buildSitemapFromPaths(domain, htmlPaths)
+      result.pagesFound = htmlPaths.length
+    } else {
+      // Only index.html = pure SPA — fall back to recursive crawl
+      const urls = await crawlSite(domain)
+      xml = buildSitemapXml(urls)
+      result.pagesFound = urls.size
+    }
+
+    await deploySitemapFile(netlifySiteId, xml)
+    await sleep(5_000)
+    const sitemapUrl = `https://${domain}/sitemap.xml`
+    await submitSitemap(domain, sitemapUrl)
+    result.sitemapUrl = sitemapUrl
+    result.status = 'generated'
 
     // Request indexing for the homepage
     try {
